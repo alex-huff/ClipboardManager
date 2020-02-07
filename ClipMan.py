@@ -1,5 +1,7 @@
-import clipboard
 import pickle
+import traceback
+
+import clipboard
 from pynput import keyboard
 
 
@@ -61,4 +63,8 @@ class ClipMan(keyboard.Listener):
         clipboard.copy(self.clippings[int(args[0].char)])
 
 
-ClipMan('clippings.ser')
+try:
+    ClipMan('clippings.ser')
+except Exception as e:
+    with open('error.log', 'a') as w_file:
+        w_file.write(traceback.format_exc())
