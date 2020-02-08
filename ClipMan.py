@@ -1,7 +1,7 @@
 import pickle
 import traceback
 
-import clipboard
+import win32clipboard
 from pynput import keyboard
 
 
@@ -16,10 +16,12 @@ class ClipMan(keyboard.Listener):
         self.bindings = {
             (
                 keyboard.Key.ctrl_l,
-                keyboard.KeyCode.from_char('c'),
+                keyboard.Key.shift,
+                keyboard.KeyCode.from_char('z'),
             ): self.copy,
             (
                 keyboard.Key.ctrl_l,
+                keyboard.Key.shift,
                 keyboard.KeyCode.from_char('x'),
             ): self.paste
         }
@@ -27,7 +29,8 @@ class ClipMan(keyboard.Listener):
         self.pressed = []
 
         try:
-            self.clippings = pickle.load(open(self.file, 'rb'))
+            with open(self.file, 'rb') as r_file:
+                self.clippings = pickle.load(r_file)
         except FileNotFoundError:
             self.clippings = ['' for _ in range(10)]
 
@@ -56,11 +59,22 @@ class ClipMan(keyboard.Listener):
                 break
 
     def copy(self, *args):
-        self.clippings[int(args[0].char)] = clipboard.paste()
+        win32clipboard.OpenClipboard()
+
+        try:
+            self.clippings[int(args[0].char)] = win32clipboard.GetClipboardData()
+        finally:
+            win32clipboard.CloseClipboard()
+
         pickle.dump(self.clippings, open(self.file, 'wb'))
 
     def paste(self, *args):
-        clipboard.copy(self.clippings[int(args[0].char)])
+        win32clipboard.OpenClipboard()
+
+        try:
+            win32clipboard.SetClipboardData(win32clipboard.CF_UNICODETEXT, self.clippings[int(args[0].char)])
+        finally:
+            win32clipboard.CloseClipboard()
 
 
 try:
