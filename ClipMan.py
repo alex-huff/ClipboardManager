@@ -17,9 +17,11 @@ class ClipMan(keyboard.Listener):
         self.file = file
         self.translator = Translator()
         self.bindings = {
-            (162, 160, 90): self.copy,
-            (162, 160, 88): self.paste,
-            (162, 160, 84): self.translate
+            (164, 162, 83): self.copy,
+            (164, 162, 88): self.paste,
+            (164, 162, 84): self.translate,
+            (164, 162): self.format,
+            (165, 162): self.format
         }
         self.pressed = []
 
@@ -54,13 +56,8 @@ class ClipMan(keyboard.Listener):
         if isinstance(key, keyboard.Key):
             return key.value.vk
 
-        return -1
-
     def press(self, key):
         code = ClipMan.code(key)
-
-        if code < 0:
-            return
 
         if code not in self.pressed:
             self.pressed.append(code)
@@ -69,28 +66,26 @@ class ClipMan(keyboard.Listener):
     def release(self, key):
         code = ClipMan.code(key)
 
-        if code < 0:
-            return
-
         if code in self.pressed:
             self.pressed.remove(code)
 
     def handle_keys(self):
-        split_index = len(self.pressed)
+        i = -1
 
-        for i in range(len(self.pressed)):
-            if self.pressed[i] in self.numeric:
-                split_index = i
-
+        for i, pressed in enumerate(self.pressed, 0):
+            if pressed in self.numeric:
                 break
+        else:
+            i += 1
 
-        args = [code - self.numeric.start for code in self.pressed[split_index:]]
-        binding: tuple = tuple(self.pressed[:split_index])
+        binding: tuple = tuple(self.pressed[:i])
 
         if binding in self.bindings:
-            self.bindings[binding](*args)
+            self.bindings[binding](
+                *[code - self.numeric.start for code in self.pressed[i:]]
+            )
 
-    def copy(self, *args):
+    def copy(self, *args: int):
         if len(args) == 0 or not ClipMan.open_cb():
             return
 
@@ -102,19 +97,22 @@ class ClipMan(keyboard.Listener):
         win32clipboard.CloseClipboard()
         pickle.dump(self.clippings, open(self.file, 'wb'))
 
-    def paste(self, *args):
+    def paste(self, *args: int):
         if len(args) == 0 or not ClipMan.open_cb():
             return
 
         try:
-            win32clipboard.SetClipboardData(win32clipboard.CF_UNICODETEXT, self.clippings[args[0]])
+            win32clipboard.SetClipboardData(
+                win32clipboard.CF_UNICODETEXT,
+                self.clippings[args[0]]
+            )
         except Exception:
             ClipMan.handle_exc()
 
         win32clipboard.CloseClipboard()
 
     # noinspection PyUnusedLocal
-    def translate(self, *args):
+    def translate(self, *args: int):
         if not ClipMan.open_cb():
             return
 
@@ -128,6 +126,27 @@ class ClipMan(keyboard.Listener):
             win32clipboard.SetClipboardData(
                 win32clipboard.CF_UNICODETEXT,
                 translation
+            )
+        except Exception:
+            ClipMan.handle_exc()
+
+        win32clipboard.CloseClipboard()
+
+    def format(self, *args: int):
+        if len(args) == 0 or not ClipMan.open_cb():
+            return
+
+        try:
+            cb_data = win32clipboard.GetClipboardData()
+
+            try:
+                formatted_string = self.clippings[args[0]].format(*cb_data.split())
+            except IndexError:
+                formatted_string = ''
+
+            win32clipboard.SetClipboardData(
+                win32clipboard.CF_UNICODETEXT,
+                formatted_string
             )
         except Exception:
             ClipMan.handle_exc()
